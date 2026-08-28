@@ -45,6 +45,36 @@ def evaluate_base_models(X_train, y_train, X_test, y_test):
         f1_macro = f1_score(y_test, y_pred, average="macro")
         print(f"{name:<22} | {f1_macro:.4f}")
 
+def train_strategic_cascading(X_train, y_train, X_test):
+    models = [
+        LogisticRegression(max_iter=1000, random_state=42),
+        KNeighborsClassifier(n_neighbors=5),
+        GradientBoostingClassifier(learning_rate=0.2, max_depth=7, n_estimators=200, random_state=42)
+    ]
+    
+    X_train_aug = X_train.copy()
+    X_test_aug = X_test.copy()
+    y_pred_cascade = None
+    
+    for i, model in enumerate(models):
+        model.fit(X_train_aug, y_train)
+        
+        if i == len(models) - 1:
+            y_pred_cascade = model.predict(X_test_aug)
+            break
+            
+        # Enriquecimiento de features para el siguiente modelo
+        probs_train = model.predict_proba(X_train_aug)
+        pred_train = np.argmax(probs_train, axis=1).reshape(-1, 1)
+        
+        probs_test = model.predict_proba(X_test_aug)
+        pred_test = np.argmax(probs_test, axis=1).reshape(-1, 1)
+        
+        X_train_aug = np.hstack([X_train_aug, pred_train])
+        X_test_aug = np.hstack([X_test_aug, pred_test])
+        
+    return y_pred_cascade
+
 def main():
     X_train, X_test, y_train, y_test = load_and_preprocess_data("../data/dataset_clasificacion.csv")
     
@@ -90,6 +120,23 @@ def main():
     
     print("--- STACKING RESULTADOS ---")
     print(classification_report(y_test, y_pred_stack))
+
+    # --- CASCADING ESTRATÉGICO ---
+    y_pred_cascade = train_strategic_cascading(X_train_bal, y_train_bal, X_test_scaled)
+    global_results["Cascading (Estratégico)"] = {
+        "Accuracy": accuracy_score(y_test, y_pred_cascade),
+        "F1 Macro": f1_score(y_test, y_pred_cascade, average="macro"),
+        "F1 Weighted": f1_score(y_test, y_pred_cascade, average="weighted")
+    }
+
+    # --- COMPARACIÓN GLOBAL ---
+    print("\n" + "="*50)
+    print("n--- COMPARACIÓN GLOBAL DE MODELOS ---")
+    print("="*50)
+    
+    # Convertir diccionario a DataFrame y ordenar por F1 Macro
+    summary_df = pd.DataFrame(global_results).T.sort_values(by="F1 Macro", ascending=False)
+    print(summary_df.round(4).to_string())
 
 if __name__ == "__main__":
     main()
