@@ -1,0 +1,17 @@
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Cachés de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Datos (Opcional: puedes comentar estas líneas si los CSV pesan poco y quieres subirlos)
+# data/*.csv
+
+# Editores y SO
+.vscode/
+.idea/
+.DS_Store
